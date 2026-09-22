@@ -1,0 +1,49 @@
+name: Create Game Releases
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.zip'
+
+permissions:
+  contents: write
+
+jobs:
+  create-releases:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Find and create releases
+        shell: bash
+        run: |
+          for zip in $(find . -type f -name "*.zip"); do
+            path="${zip#./}"
+
+            game=$(echo "$path" | cut -d'/' -f1)
+            version=$(echo "$path" | cut -d'/' -f2)
+            filename=$(basename "$zip")
+
+            tag="${game}-${version}"
+
+            echo "Game: $game"
+            echo "Version: $version"
+            echo "ZIP: $filename"
+            echo "Tag: $tag"
+
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "Release $tag already exists, skipping."
+            else
+              gh release create "$tag" "$zip" \
+                --title "$game $version" \
+                --generate-notes
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
